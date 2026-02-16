@@ -147,6 +147,14 @@
   }
   .btn-timer:hover { border-color: var(--accent); color: var(--accent); }
 
+  .credit-link {
+    position: fixed; bottom: 0.8rem; right: 1.5rem;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.65rem;
+    color: var(--dim); text-decoration: none; opacity: 0.6;
+    transition: opacity 0.2s, color 0.2s;
+  }
+  .credit-link:hover { opacity: 1; color: var(--accent); }
+
   .focus-zone {
     position: fixed; left: 0; right: 12px; top: var(--focus-zone);
     height: 3px; background: var(--accent); opacity: 0.15; z-index: 50; pointer-events: none;
@@ -259,6 +267,8 @@
     <button class="btn btn-start" id="startBtn">&#9654; Start</button>
   </div>
 </div>
+
+<a href="https://github.com/cheapredwine/demo-prompter" class="credit-link" title="Made by cheapredwine">Made by @cheapredwine</a>
 
 <div id="prompterMode">
   <div class="prompter-topbar">
