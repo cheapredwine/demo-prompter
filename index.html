@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo Prompter</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --border: #1e1e2a;
+    --text: #e8e8f0;
+    --dim: #6a6a80;
+    --accent: #4ade80;
+    --accent-dim: #4ade8033;
+    --danger: #f87171;
+    --focus-zone: 35%;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* EDIT MODE */
+  #editMode {
+    display: flex; flex-direction: column; height: 100vh;
+    padding: 1rem 1.5rem; gap: 0.8rem;
+  }
+  #editMode.hidden { display: none; }
+  #editMode header {
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  }
+  .logo {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+    letter-spacing: 0.15em; text-transform: uppercase; color: var(--accent);
+    display: flex; align-items: center; gap: 0.6rem;
+  }
+  .logo::before { content: '\25b6'; font-size: 0.7rem; }
+
+  #scriptInput {
+    flex: 1; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 1.05rem; line-height: 1.85; padding: 1rem 1.2rem;
+    resize: none; outline: none; transition: border-color 0.2s;
+  }
+  #scriptInput:focus { border-color: var(--accent-dim); }
+  #scriptInput::placeholder { color: var(--dim); }
+
+  .controls-bar {
+    display: flex; align-items: center; gap: 1.2rem; flex-shrink: 0;
+  }
+  .control-group { display: flex; align-items: center; gap: 0.6rem; }
+  .control-group label {
+    font-size: 0.78rem; color: var(--dim); font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none; width: 100px; height: 4px;
+    background: var(--border); border-radius: 2px; outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px;
+    border-radius: 50%; background: var(--accent); cursor: pointer;
+  }
+  .speed-val, .size-val {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;
+    color: var(--accent); min-width: 2.5ch; text-align: right;
+  }
+  .spacer { flex: 1; }
+
+  .btn {
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.06em;
+    border: none; border-radius: 8px; cursor: pointer;
+    transition: all 0.15s; text-transform: uppercase;
+  }
+  .btn-start {
+    background: var(--accent); color: var(--bg); font-weight: 700;
+    font-size: 0.72rem; padding: 0.45rem 1rem;
+  }
+  .btn-start:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .btn-upload {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+    letter-spacing: 0.06em; text-transform: uppercase; padding: 0.45rem 1rem;
+    background: var(--surface); border: 1px solid var(--border); color: var(--accent);
+    border-radius: 6px; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .btn-upload:hover { border-color: var(--accent); background: var(--accent-dim); }
+
+  /* PROMPTER MODE */
+  #prompterMode { display: none; height: 100vh; flex-direction: column; position: relative; }
+  #prompterMode.active { display: flex; }
+
+  .prompter-topbar {
+    position: fixed; top: 0; left: 0; right: 14px; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.8rem 2rem;
+    background: linear-gradient(to bottom, rgba(10,10,15,0.95), transparent);
+    opacity: 0; transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  #prompterMode:hover .prompter-topbar { opacity: 1; pointer-events: auto; }
+  .topbar-controls { display: flex; align-items: center; gap: 1rem; }
+
+  .btn-icon {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    width: 36px; height: 36px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 1rem; transition: all 0.15s;
+  }
+  .btn-icon:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-exit {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    background: var(--surface); border: 1px solid var(--border); color: var(--danger);
+    padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; transition: all 0.15s;
+  }
+  .btn-exit:hover { border-color: var(--danger); background: #f8717118; }
+
+  .status-pill {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+    padding: 0.35rem 0.8rem; border-radius: 20px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .status-pill.scrolling { background: var(--accent-dim); color: var(--accent); }
+  .status-pill.paused { background: #f8717122; color: var(--danger); }
+
+  .timer-group {
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .timer-display {
+    font-family: 'JetBrains Mono', monospace; font-size: 1rem;
+    color: var(--text); letter-spacing: 0.08em; min-width: 5ch; text-align: center;
+  }
+  .timer-display.paused { color: var(--danger); }
+  .btn-timer {
+    background: var(--surface); border: 1px solid var(--border); color: var(--dim);
+    width: 28px; height: 28px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 0.75rem; transition: all 0.15s;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .btn-timer:hover { border-color: var(--accent); color: var(--accent); }
+
+  .focus-zone {
+    position: fixed; left: 0; right: 12px; top: var(--focus-zone);
+    height: 3px; background: var(--accent); opacity: 0.15; z-index: 50; pointer-events: none;
+  }
+  .mask-top, .mask-bottom { position: fixed; left: 0; right: 12px; z-index: 10; pointer-events: none; }
+  .mask-top { top: 0; height: 25%; background: linear-gradient(to bottom, rgba(10,10,15,0.9) 0%, transparent 100%); }
+  .mask-bottom { bottom: 0; height: 40%; background: linear-gradient(to top, rgba(10,10,15,0.92) 0%, transparent 100%); }
+
+  #scrollContainer {
+    flex: 1; overflow-y: scroll; overflow-x: hidden; position: relative;
+    scrollbar-width: thin;
+    scrollbar-color: var(--dim) transparent;
+  }
+  #scrollContainer::-webkit-scrollbar { width: 8px; }
+  #scrollContainer::-webkit-scrollbar-track { background: var(--surface); }
+  #scrollContainer::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 4px; }
+  #scrollContainer::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+  #prompterContent { padding: 50vh 8vw 60vh 8vw; }
+  #prompterContent.mirrored { transform: scaleX(-1); }
+
+  /* Rendered markdown styles */
+  #prompterContent h1, #prompterContent h2, #prompterContent h3, #prompterContent h4 {
+    font-family: 'JetBrains Mono', monospace; text-transform: uppercase;
+    letter-spacing: 0.12em; color: var(--accent); margin-top: 1em; margin-bottom: 0.3em;
+    opacity: 0.8;
+  }
+  #prompterContent h1 { font-size: 0.85em; }
+  #prompterContent h2 { font-size: 0.78em; }
+  #prompterContent h3 { font-size: 0.72em; }
+  #prompterContent p { color: var(--dim); line-height: 1.6; margin: 0.3em 0; }
+  #prompterContent ul, #prompterContent ol {
+    color: var(--dim); line-height: 1.6; padding-left: 1.5em; margin: 0.3em 0;
+  }
+  #prompterContent li { margin: 0.15em 0; }
+  #prompterContent li::marker { color: var(--accent); opacity: 0.5; }
+  #prompterContent strong { color: var(--text); font-weight: 700; }
+  #prompterContent em {
+    color: var(--accent); font-style: italic; opacity: 0.65;
+  }
+  #prompterContent code {
+    background: var(--surface); padding: 0.1em 0.4em; border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.85em; color: var(--accent);
+  }
+  #prompterContent hr {
+    border: none; border-top: 1px solid var(--border); margin: 1em 0;
+  }
+  #prompterContent blockquote {
+    border-left: 3px solid var(--accent); padding-left: 1em;
+    color: var(--dim); font-style: italic; opacity: 0.7; margin: 0.5em 0;
+  }
+  #prompterContent .md-focus,
+  #prompterContent .md-focus li,
+  #prompterContent .md-focus p { color: var(--text) !important; opacity: 1 !important; }
+
+  .kb-hints {
+    position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 1.2rem; z-index: 100; opacity: 0; transition: opacity 0.3s;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--dim);
+  }
+  #prompterMode:hover .kb-hints { opacity: 0.7; }
+  kbd {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 0.15rem 0.45rem; border-radius: 4px; font-family: inherit; font-size: inherit;
+  }
+
+  #dropOverlay {
+    display: none; position: absolute; inset: 0;
+    background: rgba(74,222,128,0.08); border: 2px dashed var(--accent);
+    border-radius: 12px; z-index: 10; pointer-events: none;
+    align-items: center; justify-content: center;
+  }
+  #dropOverlay span {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: var(--accent);
+  }
+</style>
+</head>
+<body>
+
+<div id="editMode">
+  <header>
+    <div class="logo">Demo Prompter</div>
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <details style="font-size:0.78rem;color:var(--dim);font-family:'JetBrains Mono',monospace;">
+        <summary style="cursor:pointer;color:var(--accent);opacity:0.7;">Formatting tips</summary>
+        <span style="margin-left:0.5rem;"># &rarr; section header &nbsp;|&nbsp; - &rarr; bullet &nbsp;|&nbsp; blank line &rarr; spacer &nbsp;|&nbsp; Markdown renders once you press Start</span>
+      </details>
+      <div style="flex:1;"></div>
+      <input type="file" id="fileInput" accept=".md,.txt,.markdown" style="display:none;">
+      <button class="btn-upload" id="uploadBtn" title="Load a .md or .txt file">&#11014; Upload .md</button>
+    </div>
+  </header>
+
+  <div style="position:relative;flex:1;display:flex;flex-direction:column;">
+    <textarea id="scriptInput" placeholder="# Section Title&#10;- Bullet point&#10;- Another point&#10;&#10;# Next Section&#10;- More notes"></textarea>
+    <div id="dropOverlay"><span>Drop .md file here</span></div>
+  </div>
+
+  <div class="controls-bar">
+    <div class="control-group">
+      <label>Speed</label>
+      <input type="range" id="speedSlider" min="0.5" max="5" step="0.25" value="1.5">
+      <span class="speed-val" id="speedVal">1.5</span>
+    </div>
+    <div class="control-group">
+      <label>Size</label>
+      <input type="range" id="sizeSlider" min="1.2" max="4" step="0.1" value="2.2">
+      <span class="size-val" id="sizeVal">2.2</span>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn btn-start" id="startBtn">&#9654; Start</button>
+  </div>
+</div>
+
+<div id="prompterMode">
+  <div class="prompter-topbar">
+    <div class="topbar-controls">
+      <button class="btn-exit" id="exitBtn">&#10005; Edit</button>
+      <button class="btn-icon" id="topBtn" title="Back to top">&#8593;</button>
+      <button class="btn-icon" id="mirrorBtn" title="Mirror">&#8644;</button>
+    </div>
+    <span class="status-pill scrolling" id="statusPill">Scrolling</span>
+    <div class="timer-group">
+      <span class="timer-display" id="timerDisplay">00:00</span>
+      <button class="btn-timer" id="timerPauseBtn" title="Pause/resume timer">&#9646;&#9646;</button>
+      <button class="btn-timer" id="timerResetBtn" title="Reset timer">&#8634;</button>
+    </div>
+    <div class="topbar-controls">
+      <label style="font-size:0.7rem;color:var(--dim);font-family:'JetBrains Mono',monospace;">SPD</label>
+      <input type="range" id="liveSpeedSlider" min="0.5" max="5" step="0.25" value="1.5" style="width:80px;">
+    </div>
+  </div>
+  <div class="focus-zone"></div>
+  <div class="mask-top"></div>
+  <div class="mask-bottom"></div>
+  <div id="scrollContainer">
+    <div id="prompterContent"></div>
+  </div>
+  <div class="kb-hints">
+    <span><kbd>Space</kbd> pause/play</span>
+    <span><kbd>&#8593;</kbd><kbd>&#8595;</kbd> speed</span>
+    <span><kbd>&#8592;</kbd><kbd>&#8594;</kbd> jump</span>
+    <span><kbd>Esc</kbd> edit</span>
+    <span><kbd>Home</kbd> top</span>
+  </div>
+</div>
+
+<script>
+// ── Markdown Parser ──
+function parseMD(text) {
+  var html = '';
+  var lines = text.split('\n');
+  var inList = false;
+  var listType = null;
+
+  function closeList() {
+    if (inList) {
+      html += listType === 'ul' ? '</ul>' : '</ol>';
+      inList = false;
+      listType = null;
+    }
+  }
+
+  function inlineMD(t) {
+    t = t.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+    t = t.replace(/___(.+?)___/g, '<strong><em>$1</em></strong>');
+    t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    t = t.replace(/__(.+?)__/g, '<strong>$1</strong>');
+    t = t.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    t = t.replace(/_([^_]+?)_/g, '<em>$1</em>');
+    t = t.replace(/~~(.+?)~~/g, '<del>$1</del>');
+    t = t.replace(/\x60([^\x60]+?)\x60/g, '<code>$1</code>');
+    t = t.replace(/\[(.+?)\]\((.+?)\)/g, '$1');
+    return t;
+  }
+
+  for (var i = 0; i < lines.length; i++) {
+    var trimmed = lines[i].trim();
+    if (trimmed === '') { closeList(); html += '<br>'; continue; }
+    if (trimmed === '---' || trimmed === '***' || trimmed === '___') { closeList(); html += '<hr>'; continue; }
+
+    var hMatch = trimmed.match(/^(#{1,6})\s+(.*)/);
+    if (hMatch) {
+      closeList();
+      var lvl = hMatch[1].length;
+      html += '<h' + lvl + '>' + inlineMD(hMatch[2]) + '</h' + lvl + '>';
+      continue;
+    }
+
+    if (/^[-]\s/.test(trimmed) || /^[*]\s/.test(trimmed) || /^[\u2022]\s/.test(trimmed)) {
+      if (!inList || listType !== 'ul') { closeList(); html += '<ul>'; inList = true; listType = 'ul'; }
+      html += '<li>' + inlineMD(trimmed.replace(/^[-*\u2022]\s+/, '')) + '</li>';
+      continue;
+    }
+
+    if (/^\d+\.\s/.test(trimmed)) {
+      if (!inList || listType !== 'ol') { closeList(); html += '<ol>'; inList = true; listType = 'ol'; }
+      html += '<li>' + inlineMD(trimmed.replace(/^\d+\.\s+/, '')) + '</li>';
+      continue;
+    }
+
+    if (trimmed.charAt(0) === '>') {
+      closeList();
+      html += '<blockquote>' + inlineMD(trimmed.replace(/^>\s*/, '')) + '</blockquote>';
+      continue;
+    }
+
+    closeList();
+    html += '<p>' + inlineMD(trimmed) + '</p>';
+  }
+  closeList();
+  return html;
+}
+
+// ── App ──
+var editMode = document.getElementById('editMode');
+var prompterMode = document.getElementById('prompterMode');
+var scriptInput = document.getElementById('scriptInput');
+var prompterContent = document.getElementById('prompterContent');
+var scrollContainer = document.getElementById('scrollContainer');
+var startBtn = document.getElementById('startBtn');
+var exitBtn = document.getElementById('exitBtn');
+var mirrorBtn = document.getElementById('mirrorBtn');
+var topBtn = document.getElementById('topBtn');
+var timerDisplay = document.getElementById('timerDisplay');
+var timerPauseBtn = document.getElementById('timerPauseBtn');
+var timerResetBtn = document.getElementById('timerResetBtn');
+var statusPill = document.getElementById('statusPill');
+var speedSlider = document.getElementById('speedSlider');
+var liveSpeedSlider = document.getElementById('liveSpeedSlider');
+var speedVal = document.getElementById('speedVal');
+var sizeSlider = document.getElementById('sizeSlider');
+var sizeVal = document.getElementById('sizeVal');
+var fileInput = document.getElementById('fileInput');
+var uploadBtn = document.getElementById('uploadBtn');
+var dropOverlay = document.getElementById('dropOverlay');
+
+var scrolling = false;
+var scrollSpeed = 1.5;
+var animFrame = null;
+var scrollPos = 0;
+
+// Timer state
+var timerRunning = false;
+var timerStartTime = 0;
+var timerElapsed = 0;
+var timerInterval = null;
+
+function formatTime(ms) {
+  var totalSec = Math.floor(ms / 1000);
+  var min = Math.floor(totalSec / 60);
+  var sec = totalSec % 60;
+  return (min < 10 ? '0' : '') + min + ':' + (sec < 10 ? '0' : '') + sec;
+}
+
+function updateTimerDisplay() {
+  var current = timerRunning ? timerElapsed + (Date.now() - timerStartTime) : timerElapsed;
+  timerDisplay.textContent = formatTime(current);
+}
+
+function startTimer() {
+  if (timerRunning) return;
+  timerRunning = true;
+  timerStartTime = Date.now();
+  timerDisplay.classList.remove('paused');
+  timerPauseBtn.innerHTML = '&#9646;&#9646;';
+  timerInterval = setInterval(updateTimerDisplay, 250);
+}
+
+function pauseTimer() {
+  if (!timerRunning) return;
+  timerElapsed += Date.now() - timerStartTime;
+  timerRunning = false;
+  clearInterval(timerInterval);
+  timerDisplay.classList.add('paused');
+  timerPauseBtn.innerHTML = '&#9654;';
+  updateTimerDisplay();
+}
+
+function toggleTimer() {
+  if (timerRunning) { pauseTimer(); } else { startTimer(); }
+}
+
+function resetTimer() {
+  timerRunning = false;
+  timerElapsed = 0;
+  timerStartTime = 0;
+  clearInterval(timerInterval);
+  timerDisplay.textContent = '00:00';
+  timerDisplay.classList.remove('paused');
+  timerPauseBtn.innerHTML = '&#9646;&#9646;';
+}
+
+speedSlider.addEventListener('input', function() {
+  scrollSpeed = parseFloat(speedSlider.value);
+  speedVal.textContent = scrollSpeed.toFixed(1);
+  liveSpeedSlider.value = scrollSpeed;
+});
+liveSpeedSlider.addEventListener('input', function() {
+  scrollSpeed = parseFloat(liveSpeedSlider.value);
+  speedSlider.value = scrollSpeed;
+  speedVal.textContent = scrollSpeed.toFixed(1);
+});
+sizeSlider.addEventListener('input', function() {
+  var s = parseFloat(sizeSlider.value);
+  sizeVal.textContent = s.toFixed(1);
+  prompterContent.style.fontSize = s + 'rem';
+});
+
+function renderPrompter(text) {
+  prompterContent.innerHTML = parseMD(text);
+}
+
+function updateFocusHighlight() {
+  var focusY = window.innerHeight * 0.35;
+  var blocks = prompterContent.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,blockquote,pre,hr');
+  for (var i = 0; i < blocks.length; i++) {
+    var rect = blocks[i].getBoundingClientRect();
+    var dist = Math.abs(rect.top + rect.height / 2 - focusY);
+    if (dist < 60) {
+      blocks[i].classList.add('md-focus');
+    } else {
+      blocks[i].classList.remove('md-focus');
+    }
+  }
+}
+
+function scrollLoop() {
+  if (scrolling) {
+    scrollPos += scrollSpeed;
+    scrollContainer.scrollTop = scrollPos;
+    updateFocusHighlight();
+    if (scrollPos >= scrollContainer.scrollHeight - scrollContainer.clientHeight) {
+      toggleScroll(false);
+    }
+  }
+  animFrame = requestAnimationFrame(scrollLoop);
+}
+
+function toggleScroll(force) {
+  scrolling = force !== undefined ? force : !scrolling;
+  statusPill.textContent = scrolling ? 'Scrolling' : 'Paused';
+  statusPill.className = 'status-pill ' + (scrolling ? 'scrolling' : 'paused');
+}
+
+startBtn.addEventListener('click', function() {
+  var text = scriptInput.value.trim();
+  if (!text) return;
+  renderPrompter(text);
+  prompterContent.style.fontSize = parseFloat(sizeSlider.value) + 'rem';
+  editMode.classList.add('hidden');
+  prompterMode.classList.add('active');
+  scrollPos = 0;
+  scrollContainer.scrollTop = 0;
+  setTimeout(function() { toggleScroll(true); scrollLoop(); startTimer(); }, 800);
+});
+
+exitBtn.addEventListener('click', function() {
+  toggleScroll(false);
+  resetTimer();
+  if (animFrame) cancelAnimationFrame(animFrame);
+  prompterMode.classList.remove('active');
+  editMode.classList.remove('hidden');
+});
+
+mirrorBtn.addEventListener('click', function() {
+  prompterContent.classList.toggle('mirrored');
+});
+
+topBtn.addEventListener('click', function() {
+  scrollPos = 0;
+  scrollContainer.scrollTop = 0;
+  updateFocusHighlight();
+  resetTimer();
+  startTimer();
+});
+
+timerPauseBtn.addEventListener('click', function() { toggleTimer(); });
+timerResetBtn.addEventListener('click', function() { resetTimer(); });
+
+document.addEventListener('keydown', function(e) {
+  if (!prompterMode.classList.contains('active')) return;
+  switch(e.code) {
+    case 'Space': e.preventDefault(); toggleScroll(); break;
+    case 'ArrowUp':
+      e.preventDefault();
+      scrollSpeed = Math.min(5, scrollSpeed + 0.25);
+      liveSpeedSlider.value = scrollSpeed; speedSlider.value = scrollSpeed;
+      speedVal.textContent = scrollSpeed.toFixed(1); break;
+    case 'ArrowDown':
+      e.preventDefault();
+      scrollSpeed = Math.max(0.5, scrollSpeed - 0.25);
+      liveSpeedSlider.value = scrollSpeed; speedSlider.value = scrollSpeed;
+      speedVal.textContent = scrollSpeed.toFixed(1); break;
+    case 'ArrowLeft':
+      e.preventDefault();
+      scrollPos = Math.max(0, scrollPos - 300);
+      scrollContainer.scrollTop = scrollPos; updateFocusHighlight(); break;
+    case 'ArrowRight':
+      e.preventDefault();
+      scrollPos += 300;
+      scrollContainer.scrollTop = scrollPos; updateFocusHighlight(); break;
+    case 'Escape': exitBtn.click(); break;
+    case 'Home': e.preventDefault(); scrollPos = 0; scrollContainer.scrollTop = 0; updateFocusHighlight(); resetTimer(); startTimer(); break;
+  }
+});
+
+var lastFocusTime = 0;
+window.addEventListener('focus', function() {
+  lastFocusTime = Date.now();
+});
+
+scrollContainer.addEventListener('click', function(e) {
+  if (Date.now() - lastFocusTime < 300) return;
+  if (e.clientX > scrollContainer.getBoundingClientRect().right - 20) return;
+  toggleScroll();
+});
+
+scrollContainer.addEventListener('scroll', function() {
+  scrollPos = scrollContainer.scrollTop;
+});
+
+scrollContainer.addEventListener('wheel', function(e) {
+  scrollPos = scrollContainer.scrollTop;
+  updateFocusHighlight();
+});
+
+// File upload
+function loadFile(file) {
+  if (!file) return;
+  try {
+    var reader = new FileReader();
+    reader.onload = function(e) { scriptInput.value = e.target.result; };
+    reader.onerror = function() { alert('Could not read file. Try copy-pasting instead.'); };
+    reader.readAsText(file);
+  } catch(err) {
+    alert('File reading not supported here. Try copy-pasting instead.');
+  }
+}
+
+uploadBtn.addEventListener('click', function() { fileInput.click(); });
+fileInput.addEventListener('change', function(e) {
+  loadFile(e.target.files[0]);
+  fileInput.value = '';
+});
+
+var dragCounter = 0;
+editMode.addEventListener('dragenter', function(e) {
+  e.preventDefault(); dragCounter++; dropOverlay.style.display = 'flex';
+});
+editMode.addEventListener('dragleave', function(e) {
+  e.preventDefault(); dragCounter--;
+  if (dragCounter === 0) dropOverlay.style.display = 'none';
+});
+editMode.addEventListener('dragover', function(e) { e.preventDefault(); });
+editMode.addEventListener('drop', function(e) {
+  e.preventDefault(); dragCounter = 0; dropOverlay.style.display = 'none';
+  var file = e.dataTransfer.files[0];
+  if (file && (file.name.endsWith('.md') || file.name.endsWith('.txt') || file.name.endsWith('.markdown'))) {
+    loadFile(file);
+  }
+});
+</script>
+</body>
+</html>
